@@ -32,13 +32,13 @@ Private-network Azure AI Foundry demo with agentic retrieval, AI Search, Blob St
 │  AI Services (Foundry)         AI Search                  Document Storage             │
 │  ais-foundryiq-XXXXX           srch-foundryiq-XXXXX       stfoundryiqXXXXX             │
 │  ├─ gpt-4.1     (100 TPM)     ├─ knowledge-base-index    ├─ knowledge-base container   │
-│  ├─ gpt-5.4     (100 TPM)     ├─ Knowledge Source         └─ 4 sample PDFs              │
-│  ├─ text-embedding-3-large    ├─ Knowledge Base (MCP)                                   │
+│  ├─ gpt-5.4     (100 TPM)     ├─ Knowledge Source         └─ 4 sample PDFs             │
+│  ├─ text-embedding-3-large    ├─ Knowledge Base (MCP)                                  │
 │  ├─ prj-foundryiq-demo        ├─ Shared PL → Storage     Agent Storage                 │
 │  └─ Capability Hosts          └─ Shared PL → AI Services  stagentXXXXX (bypass Azure)  │
-│     ├─ CosmosDB connection                                                              │
-│     ├─ Search connection       Cosmos DB                                                │
-│     └─ Storage connection      cosmos-foundryiq-XXXXX (agent thread storage)            │
+│     ├─ CosmosDB connection                                                             │
+│     ├─ Search connection       Cosmos DB                                               │
+│     └─ Storage connection      cosmos-foundryiq-XXXXX (agent thread storage)           │
 │                                                                                        │
 │  Private DNS: cognitiveservices · openai · services.ai · blob · search · documents     │
 └────────────────────────────────────────────────────────────────────────────────────────┘
