@@ -1,0 +1,156 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - xrdp
+  - xfce4
+  - xfce4-goodies
+  - dbus-x11
+  - firefox
+  - python3-pip
+  - python3-venv
+  - curl
+  - jq
+  - net-tools
+
+runcmd:
+  # Configure xrdp with xfce4
+  - sed -i 's/allowed_users=console/allowed_users=anybody/' /etc/X11/Xwrapper.config || true
+  - |
+    cat > /home/${admin_username}/.xsession << 'XSEOF'
+    xfce4-session
+    XSEOF
+  - chown ${admin_username}:${admin_username} /home/${admin_username}/.xsession
+  - chmod +x /home/${admin_username}/.xsession
+  - systemctl enable xrdp
+  - systemctl start xrdp
+
+  # Install Azure CLI
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+  # Create Python virtual environment with required packages
+  - python3 -m venv /opt/foundryiq-env
+  - /opt/foundryiq-env/bin/pip install --upgrade pip
+  - /opt/foundryiq-env/bin/pip install azure-identity azure-search-documents==11.7.0b2 azure-storage-blob openai azure-ai-projects==2.0.0b1 azure-mgmt-cognitiveservices requests
+
+  # Write environment config for test scripts
+  - |
+    cat > /home/${admin_username}/foundryiq-env.sh << 'ENVEOF'
+    export FOUNDRY_ENDPOINT="${foundry_endpoint}"
+    export PROJECT_NAME="${project_name}"
+    export SEARCH_ENDPOINT="${search_endpoint}"
+    export STORAGE_ACCOUNT="${storage_account}"
+    export STORAGE_ENDPOINT="${storage_endpoint}"
+    export GPT41_DEPLOYMENT="${gpt41_deployment}"
+    export GPT54_DEPLOYMENT="${gpt54_deployment}"
+    export SUBSCRIPTION_ID="${subscription_id}"
+    export RESOURCE_GROUP="${resource_group}"
+    export FOUNDRY_NAME="${foundry_name}"
+    export VENV_PATH="/opt/foundryiq-env"
+    ENVEOF
+  - chown ${admin_username}:${admin_username} /home/${admin_username}/foundryiq-env.sh
+
+  # Create test script on the VM
+  - |
+    cat > /home/${admin_username}/test_foundry.py << 'PYTEST'
+    #!/usr/bin/env python3
+    """Test script for FoundryIQ demo - validates all services from within the VNET."""
+    import os, sys, json, time
+
+    def test_dns_resolution():
+        """Test that private DNS resolves correctly."""
+        import socket
+        print("\n=== DNS Resolution Tests ===")
+        endpoints = {
+            "Foundry": os.environ["FOUNDRY_ENDPOINT"].replace("https://", "").rstrip("/"),
+            "Search": os.environ["SEARCH_ENDPOINT"].replace("https://", "").rstrip("/"),
+            "Storage": f"{os.environ['STORAGE_ACCOUNT']}.blob.core.windows.net",
+        }
+        for name, host in endpoints.items():
+            try:
+                ip = socket.gethostbyname(host)
+                is_private = ip.startswith("10.") or ip.startswith("172.") or ip.startswith("192.168.")
+                status = "PASS (private)" if is_private else f"WARN (public: {ip})"
+                print(f"  {name}: {host} -> {ip} [{status}]")
+            except Exception as e:
+                print(f"  {name}: {host} -> FAIL ({e})")
+    
+    def test_openai():
+        """Test OpenAI model deployments via private endpoint."""
+        from openai import AzureOpenAI
+        from azure.identity import ManagedIdentityCredential
+        
+        print("\n=== OpenAI Model Tests ===")
+        credential = ManagedIdentityCredential()
+        token = credential.get_token("https://cognitiveservices.azure.com/.default")
+        
+        client = AzureOpenAI(
+            azure_endpoint=os.environ["FOUNDRY_ENDPOINT"],
+            api_version="2025-01-01-preview",
+            azure_ad_token=token.token,
+        )
+        
+        for deployment in [os.environ["GPT41_DEPLOYMENT"], os.environ["GPT54_DEPLOYMENT"]]:
+            try:
+                response = client.chat.completions.create(
+                    model=deployment,
+                    messages=[{"role": "user", "content": "Say 'hello' in one word."}],
+                    max_tokens=10,
+                )
+                print(f"  {deployment}: PASS - Response: {response.choices[0].message.content.strip()}")
+            except Exception as e:
+                print(f"  {deployment}: FAIL - {e}")
+    
+    def test_search():
+        """Test AI Search connectivity."""
+        from azure.search.documents import SearchClient
+        from azure.identity import ManagedIdentityCredential
+        
+        print("\n=== AI Search Tests ===")
+        credential = ManagedIdentityCredential()
+        try:
+            from azure.search.documents.indexes import SearchIndexClient
+            index_client = SearchIndexClient(
+                endpoint=os.environ["SEARCH_ENDPOINT"],
+                credential=credential,
+            )
+            indexes = list(index_client.list_index_names())
+            print(f"  Connection: PASS - Found {len(indexes)} indexes: {indexes}")
+        except Exception as e:
+            print(f"  Connection: FAIL - {e}")
+    
+    def test_storage():
+        """Test blob storage connectivity."""
+        from azure.storage.blob import BlobServiceClient
+        from azure.identity import ManagedIdentityCredential
+        
+        print("\n=== Storage Tests ===")
+        credential = ManagedIdentityCredential()
+        try:
+            blob_client = BlobServiceClient(
+                account_url=os.environ["STORAGE_ENDPOINT"].rstrip("/"),
+                credential=credential,
+            )
+            containers = [c.name for c in blob_client.list_containers()]
+            print(f"  Connection: PASS - Containers: {containers}")
+        except Exception as e:
+            print(f"  Connection: FAIL - {e}")
+    
+    if __name__ == "__main__":
+        # Load environment
+        print("=" * 60)
+        print("FoundryIQ Demo - Service Validation")
+        print("=" * 60)
+        
+        test_dns_resolution()
+        test_openai()
+        test_search()
+        test_storage()
+        
+        print("\n" + "=" * 60)
+        print("Validation complete!")
+        print("=" * 60)
+    PYTEST
+  - chown ${admin_username}:${admin_username} /home/${admin_username}/test_foundry.py
+  - chmod +x /home/${admin_username}/test_foundry.py
