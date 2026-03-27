@@ -6,6 +6,7 @@ locals {
     "privatelink.services.ai.azure.com",
     "privatelink.blob.core.windows.net",
     "privatelink.search.windows.net",
+    "privatelink.documents.azure.com",
   ]
 }
 

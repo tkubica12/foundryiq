@@ -6,7 +6,8 @@ resource "azurerm_search_service" "main" {
   sku                           = "standard"
   replica_count                 = 1
   partition_count               = 1
-  public_network_access_enabled = true
+  semantic_search_sku           = "standard"
+  public_network_access_enabled = false
   local_authentication_enabled  = false
 
   identity {
@@ -30,13 +31,13 @@ resource "azurerm_search_shared_private_link_service" "foundry" {
   name               = "spl-foundry"
   search_service_id  = azurerm_search_service.main.id
   subresource_name   = "openai_account"
-  target_resource_id = azurerm_cognitive_account.foundry.id
+  target_resource_id = local.foundry_id
   request_message    = "AI Search shared private link to Foundry"
 
   depends_on = [
     azurerm_search_shared_private_link_service.storage,
     azurerm_cognitive_deployment.gpt41,
-    azurerm_cognitive_account_project.main,
+    azapi_resource.ai_foundry_project,
   ]
 }
 
@@ -71,7 +72,7 @@ resource "null_resource" "approve_search_spl_foundry" {
   provisioner "local-exec" {
     command     = <<-EOT
       for ($i = 0; $i -lt 12; $i++) {
-        $conns = az network private-endpoint-connection list --id "${azurerm_cognitive_account.foundry.id}" --query "[?properties.privateLinkServiceConnectionState.status=='Pending'].id" -o tsv 2>$null
+        $conns = az network private-endpoint-connection list --id "${local.foundry_id}" --query "[?properties.privateLinkServiceConnectionState.status=='Pending'].id" -o tsv 2>$null
         if ($conns) {
           foreach ($conn in $conns -split "`n") {
             $conn = $conn.Trim()

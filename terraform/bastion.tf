@@ -62,8 +62,8 @@ resource "azurerm_linux_virtual_machine" "jump" {
   custom_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
     admin_username    = var.vm_admin_username
     admin_password    = var.vm_admin_password
-    foundry_endpoint  = "https://${azurerm_cognitive_account.foundry.custom_subdomain_name}.cognitiveservices.azure.com"
-    project_name      = azurerm_cognitive_account_project.main.name
+    foundry_endpoint  = "https://${local.foundry_subdomain}.cognitiveservices.azure.com"
+    project_name      = "prj-foundryiq-demo"
     search_endpoint   = "https://${azurerm_search_service.main.name}.search.windows.net"
     storage_account   = azurerm_storage_account.data.name
     storage_endpoint  = azurerm_storage_account.data.primary_blob_endpoint
@@ -71,7 +71,7 @@ resource "azurerm_linux_virtual_machine" "jump" {
     gpt54_deployment  = azurerm_cognitive_deployment.gpt54.name
     subscription_id   = var.subscription_id
     resource_group    = azurerm_resource_group.main.name
-    foundry_name      = azurerm_cognitive_account.foundry.name
+    foundry_name      = "ais-foundryiq-${local.suffix}"
   }))
 
   identity {

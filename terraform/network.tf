@@ -27,6 +27,21 @@ resource "azurerm_subnet" "bastion" {
   address_prefixes     = ["10.0.3.0/26"]
 }
 
+# Delegated subnet for Foundry Agent Service VNET injection
+resource "azurerm_subnet" "agent" {
+  name                 = "snet-agent"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.0.4.0/24"]
+
+  delegation {
+    name = "Microsoft.App.environments"
+    service_delegation {
+      name = "Microsoft.App/environments"
+    }
+  }
+}
+
 # NAT Gateway for outbound connectivity
 resource "azurerm_public_ip" "nat" {
   name                = "pip-ng-foundryiq-demo-sc"

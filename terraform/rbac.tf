@@ -9,14 +9,14 @@ resource "azurerm_role_assignment" "current_user_storage_blob" {
 
 # Cognitive Services OpenAI Contributor - current user
 resource "azurerm_role_assignment" "current_user_openai" {
-  scope                = azurerm_cognitive_account.foundry.id
+  scope                = local.foundry_id
   role_definition_name = "Cognitive Services OpenAI Contributor"
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
 # Cognitive Services Contributor - current user (for management)
 resource "azurerm_role_assignment" "current_user_cognitive" {
-  scope                = azurerm_cognitive_account.foundry.id
+  scope                = local.foundry_id
   role_definition_name = "Cognitive Services Contributor"
   principal_id         = data.azurerm_client_config.current.object_id
 }
@@ -46,55 +46,69 @@ resource "azurerm_role_assignment" "search_storage_reader" {
 
 # Cognitive Services OpenAI User - AI Search identity (for AI enrichment)
 resource "azurerm_role_assignment" "search_openai_user" {
-  scope                = azurerm_cognitive_account.foundry.id
+  scope                = local.foundry_id
   role_definition_name = "Cognitive Services OpenAI User"
   principal_id         = azurerm_search_service.main.identity[0].principal_id
 }
 
 # --- Foundry resource managed identity RBAC ---
 
-# Storage Blob Data Contributor - Foundry identity
+# Storage Blob Data Contributor - Foundry identity (on document storage)
 resource "azurerm_role_assignment" "foundry_storage_blob" {
   scope                = azurerm_storage_account.data.id
   role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_cognitive_account.foundry.identity[0].principal_id
+  principal_id         = local.foundry_principal_id
+}
+
+# Storage Blob Data Contributor - Foundry identity (on agent storage)
+resource "azurerm_role_assignment" "foundry_agent_storage_blob" {
+  scope                = azurerm_storage_account.agent.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = local.foundry_principal_id
 }
 
 # Search Index Data Reader - Foundry identity
 resource "azurerm_role_assignment" "foundry_search_reader" {
   scope                = azurerm_search_service.main.id
   role_definition_name = "Search Index Data Reader"
-  principal_id         = azurerm_cognitive_account.foundry.identity[0].principal_id
+  principal_id         = local.foundry_principal_id
 }
 
 # Search Service Contributor - Foundry identity
 resource "azurerm_role_assignment" "foundry_search_contrib" {
   scope                = azurerm_search_service.main.id
   role_definition_name = "Search Service Contributor"
-  principal_id         = azurerm_cognitive_account.foundry.identity[0].principal_id
+  principal_id         = local.foundry_principal_id
 }
 
 # --- Foundry project managed identity RBAC ---
 
 # Cognitive Services OpenAI User - Project identity
 resource "azurerm_role_assignment" "project_openai_user" {
-  scope                = azurerm_cognitive_account.foundry.id
+  scope                = local.foundry_id
   role_definition_name = "Cognitive Services OpenAI User"
-  principal_id         = azurerm_cognitive_account_project.main.identity[0].principal_id
+  principal_id         = local.project_principal_id
 }
 
-# Storage Blob Data Contributor - Project identity
+# Storage Blob Data Contributor - Project identity (on document storage)
 resource "azurerm_role_assignment" "project_storage_blob" {
   scope                = azurerm_storage_account.data.id
   role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_cognitive_account_project.main.identity[0].principal_id
+  principal_id         = local.project_principal_id
+}
+
+# Storage Blob Data Contributor - Project identity (on agent storage)
+resource "azurerm_role_assignment" "project_agent_storage_blob" {
+  scope                = azurerm_storage_account.agent.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = local.project_principal_id
 }
 
 # Search Index Data Reader - Project identity
 resource "azurerm_role_assignment" "project_search_reader" {
   scope                = azurerm_search_service.main.id
   role_definition_name = "Search Index Data Reader"
-  principal_id         = azurerm_cognitive_account_project.main.identity[0].principal_id
+  principal_id         = local.project_principal_id
 }
 
 # --- Jump VM managed identity RBAC ---
@@ -108,14 +122,14 @@ resource "azurerm_role_assignment" "vm_rg_owner" {
 
 # Cognitive Services OpenAI User - VM identity
 resource "azurerm_role_assignment" "vm_openai_user" {
-  scope                = azurerm_cognitive_account.foundry.id
+  scope                = local.foundry_id
   role_definition_name = "Cognitive Services OpenAI User"
   principal_id         = azurerm_linux_virtual_machine.jump.identity[0].principal_id
 }
 
 # Cognitive Services User - VM identity (broader, for agents)
 resource "azurerm_role_assignment" "vm_cognitive_user" {
-  scope                = azurerm_cognitive_account.foundry.id
+  scope                = local.foundry_id
   role_definition_name = "Cognitive Services User"
   principal_id         = azurerm_linux_virtual_machine.jump.identity[0].principal_id
 }
@@ -150,7 +164,7 @@ resource "azurerm_role_assignment" "vm_search_reader" {
 
 # Cognitive Services Contributor - VM identity (for agent management)
 resource "azurerm_role_assignment" "vm_cognitive_contrib" {
-  scope                = azurerm_cognitive_account.foundry.id
+  scope                = local.foundry_id
   role_definition_name = "Cognitive Services Contributor"
   principal_id         = azurerm_linux_virtual_machine.jump.identity[0].principal_id
 }
@@ -159,7 +173,7 @@ resource "azurerm_role_assignment" "vm_cognitive_contrib" {
 
 # Cognitive Services User - Search identity (knowledge base needs LLM for query planning)
 resource "azurerm_role_assignment" "search_cognitive_user" {
-  scope                = azurerm_cognitive_account.foundry.id
+  scope                = local.foundry_id
   role_definition_name = "Cognitive Services User"
   principal_id         = azurerm_search_service.main.identity[0].principal_id
 }

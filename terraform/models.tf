@@ -1,7 +1,7 @@
 # GPT-4.1 deployment
 resource "azurerm_cognitive_deployment" "gpt41" {
   name                 = "gpt-41"
-  cognitive_account_id = azurerm_cognitive_account.foundry.id
+  cognitive_account_id = local.foundry_id
 
   model {
     format  = "OpenAI"
@@ -18,7 +18,7 @@ resource "azurerm_cognitive_deployment" "gpt41" {
 # GPT-5.4 deployment
 resource "azurerm_cognitive_deployment" "gpt54" {
   name                 = "gpt-54"
-  cognitive_account_id = azurerm_cognitive_account.foundry.id
+  cognitive_account_id = local.foundry_id
 
   model {
     format  = "OpenAI"
@@ -37,7 +37,7 @@ resource "azurerm_cognitive_deployment" "gpt54" {
 # text-embedding-3-large for agentic retrieval vectorization
 resource "azurerm_cognitive_deployment" "embedding" {
   name                 = "text-embedding-3-large"
-  cognitive_account_id = azurerm_cognitive_account.foundry.id
+  cognitive_account_id = local.foundry_id
 
   model {
     format  = "OpenAI"

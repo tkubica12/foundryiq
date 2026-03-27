@@ -1,6 +1,6 @@
 # Wait for Foundry account to fully provision before creating PE
 resource "time_sleep" "wait_for_foundry" {
-  depends_on      = [azurerm_cognitive_account.foundry]
+  depends_on      = [azapi_resource.ai_foundry]
   create_duration = "120s"
 }
 
@@ -14,7 +14,7 @@ resource "azurerm_private_endpoint" "foundry" {
 
   private_service_connection {
     name                           = "psc-ais-foundryiq"
-    private_connection_resource_id = azurerm_cognitive_account.foundry.id
+    private_connection_resource_id = local.foundry_id
     subresource_names              = ["account"]
     is_manual_connection           = false
   }
@@ -30,8 +30,6 @@ resource "azurerm_private_endpoint" "foundry" {
 
   depends_on = [
     time_sleep.wait_for_foundry,
-    azurerm_cognitive_deployment.gpt41,
-    azurerm_cognitive_account_project.main,
   ]
 }
 

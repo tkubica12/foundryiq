@@ -3,15 +3,15 @@ output "resource_group_name" {
 }
 
 output "foundry_endpoint" {
-  value = "https://${azurerm_cognitive_account.foundry.custom_subdomain_name}.cognitiveservices.azure.com"
+  value = "https://${local.foundry_subdomain}.cognitiveservices.azure.com"
 }
 
 output "foundry_name" {
-  value = azurerm_cognitive_account.foundry.name
+  value = "ais-foundryiq-${local.suffix}"
 }
 
 output "project_name" {
-  value = azurerm_cognitive_account_project.main.name
+  value = "prj-foundryiq-demo"
 }
 
 output "search_endpoint" {
@@ -60,11 +60,11 @@ output "embedding_deployment" {
 }
 
 output "project_resource_id" {
-  value = azurerm_cognitive_account_project.main.id
+  value = local.project_id
 }
 
 output "project_endpoint" {
-  value = "https://${azurerm_cognitive_account.foundry.custom_subdomain_name}.services.ai.azure.com/api/projects/${azurerm_cognitive_account_project.main.name}"
+  value = "https://${local.foundry_subdomain}.services.ai.azure.com/api/projects/${"prj-foundryiq-demo"}"
 }
 
 output "suffix" {

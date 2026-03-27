@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """
-Create and test a Foundry Agent with Azure AI Search knowledge base.
+Test FoundryIQ: models, storage, search, and grounded chat (On Your Data).
 
-Usage: python test_agent.py
-Requires environment variables (set by Terraform outputs or foundryiq-env.sh):
-  FOUNDRY_ENDPOINT, SEARCH_ENDPOINT, GPT41_DEPLOYMENT, SUBSCRIPTION_ID, RESOURCE_GROUP, FOUNDRY_NAME, PROJECT_NAME
+Usage: source ~/foundryiq-env.sh && /opt/foundryiq-env/bin/python ~/test_agent.py
 """
 import os, sys, json, time
 
 def ensure_packages():
-    packages = ["azure-identity", "azure-ai-projects", "openai"]
+    packages = ["azure-identity", "azure-ai-projects", "openai", "requests"]
     for pkg in packages:
         try:
             __import__(pkg.replace("-", "_").replace("azure_", "azure."))
@@ -20,64 +18,6 @@ ensure_packages()
 
 from azure.identity import DefaultAzureCredential
 from openai import AzureOpenAI
-
-
-def test_chat_with_search():
-    """Test the model with grounded search using the data in AI Search."""
-    print("\n=== Testing Chat with AI Search Grounding ===")
-    credential = DefaultAzureCredential()
-    token = credential.get_token("https://cognitiveservices.azure.com/.default")
-
-    client = AzureOpenAI(
-        azure_endpoint=os.environ["FOUNDRY_ENDPOINT"],
-        api_version="2025-01-01-preview",
-        azure_ad_token=token.token,
-    )
-
-    search_endpoint = os.environ["SEARCH_ENDPOINT"]
-    deployment = os.environ["GPT41_DEPLOYMENT"]
-
-    # Questions about the knowledge base content
-    questions = [
-        "What is the password policy at Contoso Corp? How long must passwords be?",
-        "What are the RTO and RPO for Tier-1 services in the disaster recovery plan?",
-        "How many days of annual leave do employees get at Contoso?",
-        "What cloud provider does Contoso use as primary and what IaC tools are required?",
-    ]
-
-    for i, question in enumerate(questions, 1):
-        print(f"\n  Q{i}: {question}")
-        try:
-            response = client.chat.completions.create(
-                model=deployment,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant that answers questions based on the company knowledge base. Be specific and cite details from the documents."},
-                    {"role": "user", "content": question},
-                ],
-                extra_body={
-                    "data_sources": [
-                        {
-                            "type": "azure_search",
-                            "parameters": {
-                                "endpoint": search_endpoint,
-                                "index_name": "knowledge-base-index",
-                                "authentication": {
-                                    "type": "system_assigned_managed_identity",
-                                },
-                                "query_type": "semantic",
-                                "semantic_configuration": "default",
-                                "top_n_documents": 3,
-                            },
-                        }
-                    ]
-                },
-                max_tokens=300,
-            )
-            answer = response.choices[0].message.content.strip()
-            print(f"  A{i}: {answer[:300]}{'...' if len(answer) > 300 else ''}")
-            print(f"  Status: PASS")
-        except Exception as e:
-            print(f"  Status: FAIL - {e}")
 
 
 def test_direct_chat():
@@ -100,7 +40,7 @@ def test_direct_chat():
                 messages=[
                     {"role": "user", "content": "What is 2+2? Answer in one word."},
                 ],
-                max_tokens=10,
+                max_completion_tokens=10,
             )
             answer = response.choices[0].message.content.strip()
             print(f"  Response: {answer}")
@@ -109,12 +49,62 @@ def test_direct_chat():
             print(f"  Status: FAIL - {e}")
 
 
+def test_grounded_search():
+    """Test On Your Data with AI Search grounding via private endpoints."""
+    print("\n=== Testing Grounded Chat (On Your Data via Private Endpoints) ===")
+    credential = DefaultAzureCredential()
+    token = credential.get_token("https://cognitiveservices.azure.com/.default")
+    client = AzureOpenAI(
+        azure_endpoint=os.environ["FOUNDRY_ENDPOINT"],
+        api_version="2025-01-01-preview",
+        azure_ad_token=token.token,
+    )
+
+    questions = [
+        "What is the password policy at Contoso Corp? How long must passwords be?",
+        "What are the RTO and RPO for Tier-1 services in the disaster recovery plan?",
+        "How many days of annual leave do employees get at Contoso?",
+        "What cloud provider does Contoso use as primary and what IaC tools are required?",
+    ]
+
+    for i, question in enumerate(questions, 1):
+        print(f"\n  Q{i}: {question}")
+        try:
+            response = client.chat.completions.create(
+                model=os.environ["GPT41_DEPLOYMENT"],
+                messages=[
+                    {"role": "system", "content": "Answer using the knowledge base. Cite document filenames."},
+                    {"role": "user", "content": question},
+                ],
+                extra_body={
+                    "data_sources": [{
+                        "type": "azure_search",
+                        "parameters": {
+                            "endpoint": os.environ["SEARCH_ENDPOINT"],
+                            "index_name": "knowledge-base-index",
+                            "authentication": {
+                                "type": "system_assigned_managed_identity",
+                            },
+                            "query_type": "semantic",
+                            "semantic_configuration": "default",
+                            "top_n_documents": 3,
+                        },
+                    }]
+                },
+            )
+            answer = response.choices[0].message.content.strip()
+            print(f"  A{i}: {answer[:300]}{'...' if len(answer) > 300 else ''}")
+            print(f"  Status: PASS")
+        except Exception as e:
+            print(f"  Status: FAIL - {e}")
+
+
 def main():
     print("=" * 60)
-    print("FoundryIQ - Agent & Knowledge Base Test")
+    print("FoundryIQ Demo - Full Validation Suite")
     print("=" * 60)
 
-    required_vars = ["FOUNDRY_ENDPOINT", "SEARCH_ENDPOINT", "GPT41_DEPLOYMENT"]
+    required_vars = ["FOUNDRY_ENDPOINT", "SEARCH_ENDPOINT", "GPT41_DEPLOYMENT", "SUBSCRIPTION_ID", "RESOURCE_GROUP"]
     missing = [v for v in required_vars if not os.environ.get(v)]
     if missing:
         print(f"ERROR: Missing environment variables: {', '.join(missing)}")
@@ -122,7 +112,7 @@ def main():
         sys.exit(1)
 
     test_direct_chat()
-    test_chat_with_search()
+    test_grounded_search()
 
     print("\n" + "=" * 60)
     print("All tests complete!")
